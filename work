@@ -1,0 +1,123 @@
+activity_raw_data <- read.csv("activity.csv")
+str(activity_raw_data)
+'data.frame':	17568 obs. of  3 variables:
+ $ steps   : int  NA NA NA NA NA NA NA NA NA NA ...
+ $ date    : Factor w/ 61 levels "2012-10-01","2012-10-02",..: 1 1 1 1 1 1 1 1 1 1 ...
+ $ interval: int  0 5 10 15 20 25 30 35 40 45 ...
+
+activity_raw_data$date <- as.Date(activity_raw_data$date)
+
+1. What is the mean total number of steps taken per day?
+
+calculate number of steps taken per day (ignoring NA values):
+steps_by_date <- aggregate(activity_raw_data$steps, by=list(activity_raw_data$date), sum)
+colnames(steps_by_date) <- c("Date", "Total_Steps")
+head(steps_by_date)
+        Date Total_Steps
+1 2012-10-01          NA
+2 2012-10-02         126
+3 2012-10-03       11352
+4 2012-10-04       12116
+5 2012-10-05       13294
+6 2012-10-06       15420
+
+
+Plot the total steps by date:
+with(steps_by_date, plot(Date, Total_Steps, type="h"))
+title(main = "Total Steps by Date")
+dev.copy(png, "steps_by_date.png")
+dev.off()
+
+Computing the mean and median of the total number of steps taken per day
+mean(steps_by_date$Total_Steps, na.rm = TRUE)
+[1] 10766.19
+median(steps_by_date$Total_Steps, na.rm = TRUE)
+[1] 10765
+
+2. What is the average daily activity pattern?
+Compute average number of steps across all days per interval:
+steps_by_interval <- activity_raw_data %>% group_by(interval) %>% summarise(steps = mean(steps, na.rm=TRUE)
+
+Plot the average steps by interval:
+with(steps_by_interval, plot(interval, steps, type="l"))
+title(main="Average Steps per 5 minute interval")
+dev.copy(png, "steps_by_interval.png")
+dev.off()
+
+Which 5-minute interval, on average across all the dats in the dataset, contains the maximum number of steps?
+steps_by_interval[which.max(steps_by_interval$steps), ]
+835 206.1698 - at 08:05 hours, the maximum number of steps on average is 206
+
+3. Imputing missing values
+The dataset has a total of 2304 observations that are missing values for number of steps as calculated with sum(is.na(activity_raw_data$steps))
+For those observations we can use the mean number of steps for that specific interval across all days in our data set:
+replace_NA <- function(data) {
+
+        obs <- nrow(data)  ## get total rows in raw data set
+        n <- 1
+        
+        ## test every row in the raw data set. if steps value is NA,
+        ## look up the corresponding interval value in steps_by_interval
+        ## to get the mean number of steps across all days for that interval
+        ## and use it in place of NA
+        
+        while (n <= obs) {    
+                if (is.na(data$steps[n])) {   
+                        interval <- data$interval[n];  
+                        x <- which(steps_by_interval$interval == interval); 
+                        data$steps[n] <- steps_by_interval$steps[x]
+                
+                }
+        
+                n <- n + 1
+        }
+        assign('data',data,envir=.GlobalEnv)
+}
+
+Call the function - replace_NA(activity_raw_data)
+Move the updated data to a new data frame called complete_data - complete_data <- data
+
+calculate number of steps taken per day (ignoring NA values):
+steps_by_date <- aggregate(complete_data$steps, by=list(complete_data$date), sum)
+colnames(steps_by_date) <- c("Date", "Total_Steps")
+head(steps_by_date)
+        Date Total_Steps
+1 2012-10-01    10766.19
+2 2012-10-02      126.00
+3 2012-10-03    11352.00
+4 2012-10-04    12116.00
+5 2012-10-05    13294.00
+6 2012-10-06    15420.00
+
+Plot the total steps by date with the NAs replaced:
+with(steps_by_date, plot(Date, Total_Steps, type="h"))
+title(main = "Total Steps by Date")
+dev.copy(png, "steps_by_date.png")
+dev.off()
+
+Computing the mean and median of the total number of steps taken per day
+mean(steps_by_date$Total_Steps)
+[1] 10766.19
+median(steps_by_date$Total_Steps)
+[1] 10766.19
+
+4. Are there differences in activity patterns between weekdays and weekends?
+Add a colunm to complete_data called is_weekday to indicate if the observation is from a weekday or weekend day:
+weekend <- c("Saturday", "Sunday")
+complete_data$is_weekday <- factor((weekdays(complete_data$date) %in% weekend), levels = c(TRUE, FALSE), labels=c('Weekend', 'Weekday'))
+
+
+steps_by_interval <- complete_data %>% group_by(is_weekday, interval) %>% summarise(steps = mean(steps))
+
+par(mfrow = c(2,1))
+with(steps_by_interval[steps_by_interval$is_weekday == "Weekday",], plot(interval, steps, type = "l"))
+title(main = "Weekday")
+with(steps_by_interval[steps_by_interval$is_weekday == "Weekend",], plot(interval, steps, type = "l"))
+title(main = "Weekend")
+dev.copy(png, "steps_by_interval_weekend_weekday.png")
+dev.off()
+
+
+
+
+
